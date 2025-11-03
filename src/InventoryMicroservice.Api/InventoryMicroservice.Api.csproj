@@ -10,4 +10,10 @@
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="9.0.9" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\InventoryMicroservice.Common\InventoryMicroservice.Common.csproj" />
+    <ProjectReference Include="..\InventoryMicroservice.Infrastructure\InventoryMicroservice.Infrastructure.csproj" />
+    <ProjectReference Include="..\InventoryMicroservice.Service\InventoryMicroservice.Service.csproj" />
+  </ItemGroup>
+
 </Project>

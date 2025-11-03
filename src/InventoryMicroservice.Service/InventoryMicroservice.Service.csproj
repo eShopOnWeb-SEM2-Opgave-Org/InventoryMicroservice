@@ -1,5 +1,10 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
+  <ItemGroup>
+    <ProjectReference Include="..\InventoryMicroservice.Common\InventoryMicroservice.Common.csproj" />
+    <ProjectReference Include="..\InventoryMicroservice.Infrastructure\InventoryMicroservice.Infrastructure.csproj" />
+  </ItemGroup>
+
   <PropertyGroup>
     <TargetFramework>net9.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
