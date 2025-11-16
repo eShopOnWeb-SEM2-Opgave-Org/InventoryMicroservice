@@ -1,8 +1,8 @@
 using InventoryMicroservice.Common.Models;
 
-namespace InventoryMicroservice.Infrastructure.Interfaces;
+namespace InventoryMicroservice.Service.Interfaces;
 
-public interface IInventoryRepository
+public interface IInventoryService
 {
   Task<IEnumerable<InventoryStatus>> GetAllItemStatusesAsync(CancellationToken cancellationToken = default);
   Task<IEnumerable<InventoryStatus>> GetItemStatusesAsync(IEnumerable<int> catalogItemIds, CancellationToken cancellationToken = default);

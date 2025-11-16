@@ -1,5 +1,6 @@
 using InventoryMicroservice.Api.DependencyInjection;
 using InventoryMicroservice.Infrastructure.DependencyInjection;
+using InventoryMicroservice.Service.DependencyInjection;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -7,6 +8,7 @@ var connectionString = Environment.GetEnvironmentVariable("SQL_CONNECTION_STRING
 var databaseName = Environment.GetEnvironmentVariable("DATABASE_NAME", EnvironmentVariableTarget.Process) ?? "";
 
 builder.Services.AddInventoryInfrastructure(connectionString, databaseName);
+builder.Services.AddInventoryServices();
 
 var rabbitUsername = Environment.GetEnvironmentVariable("RABBITMQ_USER", EnvironmentVariableTarget.Process) ?? "";
 var rabbitPassword = Environment.GetEnvironmentVariable("RABBITMQ_PASS", EnvironmentVariableTarget.Process) ?? "";
