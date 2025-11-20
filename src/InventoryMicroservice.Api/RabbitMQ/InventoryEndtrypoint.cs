@@ -13,6 +13,8 @@ public class InventoryEntrypoint: IRabbitMQEntrypoint
   internal const string HOSTNAME_KEY = "inventory-hostname";
   internal const string PORT_KEY = "inventory-posrt";
 
+  private readonly IServiceProvider _serviceProvider;
+
   private readonly string _rabbitMQHostname;
   private readonly int _rabbitMQPort;
 
@@ -24,7 +26,7 @@ public class InventoryEntrypoint: IRabbitMQEntrypoint
   private const string DEAD_LETTER_EXCHANGE_NAME = "inventory-dead-letter-exchange";
   private const string INVALID_MESSAGE_EXCHANGE_NAME = "inventory-invalid-message-exchange";
 
-  public InventoryEntrypoint(IServiceProvider provider, RabbitMQCredentials credentials)
+  public InventoryEntrypoint(IServiceProvider provider, RabbitMQCredentials credentials, IServiceProvider serviceProvider)
   {
     string hostname = provider.GetRequiredKeyedService<string>(HOSTNAME_KEY);
     string port = provider.GetRequiredKeyedService<string>(PORT_KEY);
@@ -36,6 +38,7 @@ public class InventoryEntrypoint: IRabbitMQEntrypoint
     _rabbitMQPort = portNo;
 
     _credentials = credentials;
+    _serviceProvider = serviceProvider;
   }
 
   public async Task SetupRabbitMQAsync()
@@ -72,9 +75,17 @@ public class InventoryEntrypoint: IRabbitMQEntrypoint
     AsyncEventingBasicConsumer consumer = new AsyncEventingBasicConsumer(_channel);
     consumer.ReceivedAsync += async (sender, content) =>
     {
-      if (content.BasicProperties?.Headers?.TryGetValue("command-key", out object? value) is not true)
+      if (content.BasicProperties?.Headers?.TryGetValue("command-key", out object? commandKey) is not true)
       {
-        await SendMessageToInvalidAsync(content);
+        await SendMessageToInvalidAsync(content, "missing-command-key", "Message was missing command key");
+        return;
+      }
+
+      IRabbitMQEvent? @event = _serviceProvider.GetKeyedService<IRabbitMQEvent>(commandKey);
+
+      if (@event is null)
+      {
+        await SendMessageToInvalidAsync(content, "invalid-command-key", "Command key \"" + commandKey + "\" is not valid");
         return;
       }
 
@@ -100,7 +111,7 @@ public class InventoryEntrypoint: IRabbitMQEntrypoint
     await _channel.ExchangeDeclareAsync(INVALID_MESSAGE_EXCHANGE_NAME, ExchangeType.Topic, durable: true, autoDelete: false);
   }
 
-  private async Task SendMessageToInvalidAsync(BasicDeliverEventArgs content)
+  private async Task SendMessageToInvalidAsync(BasicDeliverEventArgs content, string routeSufix, string reason)
   {
     if (_channel is null)
       throw new InvalidOperationException("Cannot send message when no channel has been made");
@@ -108,7 +119,7 @@ public class InventoryEntrypoint: IRabbitMQEntrypoint
     string body = Encoding.UTF8.GetString(content.Body.ToArray());
     InvalidMessageError error = new InvalidMessageError()
     {
-      Reason = "message was missing command-key header",
+      Reason = reason,
       Body = body
     };
 
@@ -121,7 +132,7 @@ public class InventoryEntrypoint: IRabbitMQEntrypoint
 
     await _channel.BasicPublishAsync(
       INVALID_MESSAGE_EXCHANGE_NAME,
-      "inventory.missing-header",
+      "inventory.invalid." + routeSufix,
       false,
       props,
       invalid
