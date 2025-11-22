@@ -132,7 +132,7 @@ IF (@insertInventory = 1)
     string createItem = $@"
 USE [{_databaseName}];
 
-INSERT INTO [Item](CatalogItemId)
+INSERT INTO [Items](CatalogItemId)
 OUTPUT INSERTED.ItemId
 VALUES(@{nameof(catalogItemId)});
 ";
@@ -141,7 +141,7 @@ VALUES(@{nameof(catalogItemId)});
 USE [{_databaseName}];
 
 INSERT INTO [Inventory] (ItemId, ItemCount)
-VALUES (itemId, @{nameof(startingAmount)});
+VALUES (@itemId, @{nameof(startingAmount)});
 ";
 
     try
@@ -160,13 +160,15 @@ VALUES (itemId, @{nameof(startingAmount)});
       int newItemId = (int)await item.ExecuteScalarAsync(cancellationToken);
 
       using SqlCommand amount = connection.CreateCommand();
-      item.CommandText = createStatus;
-      item.Transaction = transaction;
+      amount.CommandText = createStatus;
+      amount.Transaction = transaction;
 
-      amount.Parameters.AddWithValue(nameof(catalogItemId), catalogItemId);
+      amount.Parameters.AddWithValue("itemId", newItemId);
       amount.Parameters.AddWithValue(nameof(startingAmount), startingAmount);
 
       await amount.ExecuteNonQueryAsync(cancellationToken);
+
+      await transaction.CommitAsync(cancellationToken);
     }
     catch (Exception e)
     {
@@ -189,8 +191,15 @@ USE [{_databaseName}];
 DELETE FROM [Inventory]
 WHERE ItemId = (
   SELECT TOP 1 I.ItemId FROM Items I
-  WHERE I.CatalogItemId = @{nameof(catalogItemId)};
-)
+  WHERE I.CatalogItemId = @{nameof(catalogItemId)}
+);
+";
+
+  string deleteItem = $@"
+USE [{_databaseName}];
+
+DELETE FROM [Items]
+Where CatalogItemId = @{nameof(catalogItemId)};
 ";
 
     try
@@ -198,12 +207,24 @@ WHERE ItemId = (
       await using SqlConnection connection = new SqlConnection(_connectionString);
       if (connection.State is ConnectionState.Closed)
         await connection.OpenAsync(cancellationToken);
+      using SqlTransaction transaction = connection.BeginTransaction();
 
-      using SqlCommand command = connection.CreateCommand();
-      command.CommandText = deleteStatus;
-      command.Parameters.AddWithValue(nameof(catalogItemId), catalogItemId);
+      using SqlCommand deleteInventory = connection.CreateCommand();
+      deleteInventory.CommandText = deleteStatus;
+      deleteInventory.Transaction = transaction;
+      deleteInventory.Parameters.AddWithValue(nameof(catalogItemId), catalogItemId);
 
-      await command.ExecuteNonQueryAsync(cancellationToken);
+      await deleteInventory.ExecuteNonQueryAsync(cancellationToken);
+
+      using SqlCommand deleteItemCommand = connection.CreateCommand();
+      deleteItemCommand.CommandText = deleteItem;
+      deleteItemCommand.Transaction = transaction;
+
+      deleteItemCommand.Parameters.AddWithValue(nameof(catalogItemId), catalogItemId);
+
+      await deleteItemCommand.ExecuteNonQueryAsync(cancellationToken);
+
+      await transaction.CommitAsync(cancellationToken);
     }
     catch (Exception e)
     {
@@ -269,9 +290,9 @@ FROM [Items] I
     string getStatus = $@"
 USE [{_databaseName}];
 
-SELECT I.ItemId, I.CatalogItemId, IN.ItemCount
+SELECT I.ItemId, I.CatalogItemId, IT.ItemCount
 FROM [Items] I
-  LEFT JOIN [Inventory] IN (I.ItemId = IN.ItemId)
+  LEFT JOIN [Inventory] IT ON (I.ItemId = IT.ItemId)
 WHERE I.CatalogItemId = @{nameof(catalogItemId)};
 ";
 

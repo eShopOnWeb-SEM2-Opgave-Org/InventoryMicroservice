@@ -17,8 +17,24 @@ public class UpdateInventoryAction: IRabbitMQAction<UpdateInventory>
     _logger = logger;
   }
 
-  public Task<bool> RunActionAsync(UpdateInventory input, CancellationToken cancellationToken)
+  public async Task<bool> RunActionAsync(UpdateInventory input, CancellationToken cancellationToken)
   {
-    throw new NotImplementedException();
+    try
+    {
+      await _service.UpdateItemInventoryStatusAsync(input.CatalogItemId, input.NewAmount, cancellationToken);
+
+      return true;
+    }
+    catch (Exception e)
+    {
+      _logger.LogError(
+        e,
+        "[Origin: {Class}.{Method}] Failed to update inventory status due to internal error",
+        nameof(UpdateInventoryAction),
+        nameof(RunActionAsync)
+      );
+
+      return false;
+    }
   }
 }

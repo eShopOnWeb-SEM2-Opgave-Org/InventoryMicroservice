@@ -15,6 +15,8 @@ public class InventoryEntrypoint: IRabbitMQEntrypoint
   internal const string HOSTNAME_KEY = "inventory-hostname";
   internal const string PORT_KEY = "inventory-posrt";
 
+  public ILogger<InventoryEntrypoint> _logger;
+
   private readonly string _rabbitMQHostname;
   private readonly int _rabbitMQPort;
 
@@ -28,7 +30,7 @@ public class InventoryEntrypoint: IRabbitMQEntrypoint
   private const string DEAD_LETTER_EXCHANGE_NAME = "inventory-dead-letter-exchange";
   private const string INVALID_MESSAGE_EXCHANGE_NAME = "inventory-invalid-message-exchange";
 
-  public InventoryEntrypoint(IServiceProvider provider, RabbitMQCredentials credentials, IServiceProvider serviceProvider)
+  public InventoryEntrypoint(IServiceProvider provider, RabbitMQCredentials credentials, IServiceProvider serviceProvider, ILogger<InventoryEntrypoint> logger)
   {
     string hostname = provider.GetRequiredKeyedService<string>(HOSTNAME_KEY);
     string port = provider.GetRequiredKeyedService<string>(PORT_KEY);
@@ -41,6 +43,7 @@ public class InventoryEntrypoint: IRabbitMQEntrypoint
 
     _credentials = credentials;
     _serviceProvider = serviceProvider;
+    _logger = logger;
   }
 
   public async Task SetupRabbitMQAsync()
@@ -77,12 +80,19 @@ public class InventoryEntrypoint: IRabbitMQEntrypoint
     AsyncEventingBasicConsumer consumer = new AsyncEventingBasicConsumer(_channel);
     consumer.ReceivedAsync += async (sender, content) =>
     {
-      if (content.BasicProperties?.Headers?.TryGetValue("command-key", out object? commandKey) is not true ||
-          commandKey is not string strCommandKey)
+      if (content.BasicProperties?.Headers?.TryGetValue("command-key", out object? commandKey) is not true)
       {
         await SendMessageToInvalidAsync(content, "missing-command-key", "Message was missing command key");
         return;
       }
+      if (commandKey is not byte[] byteCommandKey)
+      {
+        await SendMessageToInvalidAsync(content, "invalid-command-key", "Command key is not a valid string");
+        return;
+      }
+
+      string strCommandKey = Encoding.UTF8.GetString(byteCommandKey);
+      _logger.LogInformation("Command key is: " + strCommandKey);
 
       string body = Encoding.UTF8.GetString(content.Body.ToArray());
       InventoryRequestWrapper? wrapper = JsonSerializer.Deserialize<InventoryRequestWrapper>(body);
@@ -151,6 +161,8 @@ public class InventoryEntrypoint: IRabbitMQEntrypoint
       throw new InvalidOperationException("You cannot create a dead letter exchange before opening a channel");
 
     await _channel.ExchangeDeclareAsync(DEAD_LETTER_EXCHANGE_NAME, ExchangeType.Topic, durable: true, autoDelete: false);
+    await _channel.QueueDeclareAsync("inventory.dead-letter", durable: true, exclusive: false, autoDelete: false);
+    await _channel.QueueBindAsync("inventory.dead-letter", DEAD_LETTER_EXCHANGE_NAME, "inventory.unread.message");
   }
 
   private async Task SetupInvalidMessageExchangeAsync()
@@ -159,6 +171,8 @@ public class InventoryEntrypoint: IRabbitMQEntrypoint
       throw new InvalidOperationException("You cannot create an invalid message exchange before opening a channel");
 
     await _channel.ExchangeDeclareAsync(INVALID_MESSAGE_EXCHANGE_NAME, ExchangeType.Topic, durable: true, autoDelete: false);
+    await _channel.QueueDeclareAsync("inventory.invalid", durable: true, exclusive: false, autoDelete: false);
+    await _channel.QueueBindAsync("inventory.invalid", INVALID_MESSAGE_EXCHANGE_NAME, "inventory.invalid.#");
   }
 
   private async Task SendMessageToInvalidAsync(BasicDeliverEventArgs content, string routeSufix, string reason)

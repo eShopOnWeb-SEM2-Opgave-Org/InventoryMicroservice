@@ -17,8 +17,23 @@ public class DeleteInventoryAction: IRabbitMQAction<DeleteInventory>
     _logger = logger;
   }
 
-  public Task<bool> RunActionAsync(DeleteInventory input, CancellationToken cancellationToken)
+  public async Task<bool> RunActionAsync(DeleteInventory input, CancellationToken cancellationToken)
   {
-    throw new NotImplementedException();
+    try
+    {
+      await _service.DeleteItemInventoryStatusAsync(input.CatalogItemId, cancellationToken);
+      return true;
+    }
+    catch (Exception e)
+    {
+      _logger.LogError(
+        e,
+        "[Origin: {Class}.{Method}] Could not delete inventory due to internal error",
+        nameof(DeleteInventoryAction),
+        nameof(RunActionAsync)
+      );
+
+      return false;
+    }
   }
 }
