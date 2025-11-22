@@ -12,13 +12,14 @@ services:
     ports:
       - "53080:8080"
     environment:
-      - SQL_CONNECTION_STRING=Data Source=inventory-sqlserver;Integrated Security=false;User ID=sa;Password=@sineThingComplicated1234;Encrypt=false;TrustServerCertificate=true;
+      - SQL_CONNECTION_STRING=Data Source=inventory-sqlserver;Integrated Security=false;User ID=sa;Password=@someThingComplicated1234;Encrypt=false;TrustServerCertificate=true;
       - DATABASE_NAME=InventoryDatabase
       - SHOULD_SETUP_DATABASE=true
       - RABBITMQ_USER=user
       - RABBITMQ_PASS=Password123!
       - RABBITMQ_HOST=rabbit-mq
       - RABBITMQ_PORT=5672
+      - SHOULD_SHOW_SWAGGER=true
     restart: unless-stopped
     depends_on:
       - rabbit-mq
@@ -28,6 +29,11 @@ services:
     image: rabbitmq:4-management
     networks:
       - inventory-network
+    healthcheck:
+      test: rabbitmq-diagnostics -q ping
+      interval: 30s
+      timeout: 30s
+      retries: 3
     ports:
       - "15672:15672"
       - "5671:5672"

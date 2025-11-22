@@ -12,6 +12,15 @@ public static class InventoryInfrastructureDependencyInjection
     @this.AddKeyedSingleton<string>(InventoryRepository.DATABASE_NAME_KEY, databaseName);
 
     @this.AddScoped<IInventoryRepository, InventoryRepository>();
+    @this.AddScoped<InventoryRepository>();
+
+    return @this;
+  }
+
+  public static async Task<IServiceScope> SetupInventoryDatabase(this IServiceScope @this)
+  {
+    InventoryRepository repository = @this.ServiceProvider.GetRequiredService<InventoryRepository>();
+    await repository.SetupDbAsync();
 
     return @this;
   }

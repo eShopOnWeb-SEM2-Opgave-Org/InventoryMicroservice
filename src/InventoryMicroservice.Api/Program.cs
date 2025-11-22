@@ -25,9 +25,9 @@ var rabbitPort = Environment.GetEnvironmentVariable("RABBITMQ_PORT", Environment
 
 builder.Services.AddRabbitMQEntrypoints(rabbitHost, rabbitPort);
 
-builder.Services.AddRabbitMQAction<IRabbitMQAction<CreateInventory>, CreateInventoryAction>(CreateInventoryAction.CommandKey);
-builder.Services.AddRabbitMQAction<IRabbitMQAction<UpdateInventory>, UpdateInventoryAction>(UpdateInventoryAction.CommandKey);
-builder.Services.AddRabbitMQAction<IRabbitMQAction<DeleteInventory>, DeleteInventoryAction>(DeleteInventoryAction.CommandKey);
+builder.Services.AddKeyedScoped<IRabbitMQAction<CreateInventory>, CreateInventoryAction>(CreateInventoryAction.CommandKey);
+builder.Services.AddKeyedScoped<IRabbitMQAction<DeleteInventory>, DeleteInventoryAction>(DeleteInventoryAction.CommandKey);
+builder.Services.AddKeyedScoped<IRabbitMQAction<UpdateInventory>, UpdateInventoryAction>(UpdateInventoryAction.CommandKey);
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
@@ -76,6 +76,15 @@ app.MapControllers();
 
 using var scope = app.Services.CreateScope();
 scope.StartRabbitMQEntryPoints();
+
+var shouldSetupDb = Environment.GetEnvironmentVariable("SHOULD_SETUP_DATABASE", EnvironmentVariableTarget.Process) ?? "";
+if (shouldSetupDb is "true")
+{
+    await scope.SetupInventoryDatabase();
+    app.Logger.LogInformation("Setup Db");
+}
+else
+    app.Logger.LogInformation("Skip db setup");
 
 await app.RunAsync();
 

@@ -4,9 +4,9 @@ using InventoryMicroservice.Service.Interfaces;
 
 namespace InventoryMicroservice.Api.RabbitMQActions;
 
-public class UpdateInventoryAction : IRabbitMQAction<UpdateInventory>
+public class UpdateInventoryAction: IRabbitMQAction<UpdateInventory>
 {
-  internal static string CommandKey { get => "update"; }
+  internal const string CommandKey = "update";
 
   private readonly IInventoryService _service;
   private readonly ILogger<UpdateInventoryAction> _logger;
@@ -17,7 +17,7 @@ public class UpdateInventoryAction : IRabbitMQAction<UpdateInventory>
     _logger = logger;
   }
 
-  public Task RunActionAsync(UpdateInventory input, CancellationToken cancellationToken)
+  public Task<bool> RunActionAsync(UpdateInventory input, CancellationToken cancellationToken)
   {
     throw new NotImplementedException();
   }

@@ -4,9 +4,9 @@ using InventoryMicroservice.Service.Interfaces;
 
 namespace InventoryMicroservice.Api.RabbitMQActions;
 
-public class CreateInventoryAction : IRabbitMQAction<CreateInventory>
+public class CreateInventoryAction: IRabbitMQAction<CreateInventory>
 {
-  public static string CommandKey { get => "create"; }
+  public const string CommandKey = "create";
 
   private readonly IInventoryService _service;
   private readonly ILogger<CreateInventoryAction> _logger;
@@ -17,11 +17,12 @@ public class CreateInventoryAction : IRabbitMQAction<CreateInventory>
     _logger = logger;
   }
 
-  public async Task RunActionAsync(CreateInventory input, CancellationToken cancellationToken)
+  public async Task<bool> RunActionAsync(CreateInventory input, CancellationToken cancellationToken)
   {
     try
     {
       await _service.CreateItemInventoryStatusAsync(input.CatalogItemId, input.StartingAmount, cancellationToken);
+      return true;
     }
     catch (Exception e)
     {
@@ -31,6 +32,8 @@ public class CreateInventoryAction : IRabbitMQAction<CreateInventory>
         nameof(CreateInventoryAction),
         nameof(RunActionAsync)
       );
+
+      return true;
     }
   }
 }

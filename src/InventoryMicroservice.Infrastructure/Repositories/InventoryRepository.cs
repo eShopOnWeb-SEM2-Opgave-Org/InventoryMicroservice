@@ -36,11 +36,9 @@ internal class InventoryRepository : IInventoryRepository
   {
     string ensureDatabase = $@"
 IF (DB_ID('{_databaseName}') IS NOT NULL)
-THEN
   PRINT 'Database ""{_databaseName}"" already exists';
 ELSE
   CREATE DATABASE [{_databaseName}];
-END;
 ";
 
   string ensureData = $@"
@@ -50,18 +48,17 @@ DECLARE @insertInventory INT = 1;
 USE [{_databaseName}];
 
 IF (OBJECT_ID('Items') IS NOT NULL)
-THEN
+BEGIN
   PRINT 'Items table already exists';
   SET @insertItems = 0;
+END
 ELSE
   CREATE TABLE [Items] (
     [ItemId] INT PRIMARY KEY NOT NULL IDENTITY(1,1),
     [CatalogItemId] INT NOT NULL
   );
-END;
 
 IF (@insertItems = 1)
-THEN
   INSERT INTO [Items] (CatalogItemId)
   VALUES (1),
          (2),
@@ -73,37 +70,45 @@ THEN
          (8),
          (9),
          (10),
-         (12)
-END;
+         (11),
+         (12);
 
 IF (OBJECT_ID('Inventory') IS NOT NULL)
-THEN
+BEGIN
   PRINT 'Inventory table already exists';
-  SET @insertInveotry = 0;
+  SET @insertInventory = 0;
+END
 ELSE
   CREATE TABLE [Inventory] (
-    InventoryId INT NOT NULL PRIMARY KEY IDNETITY(1, 1),
+    InventoryId INT NOT NULL PRIMARY KEY IDENTITY(1, 1),
     ItemId INT NOT NULL FOREIGN KEY REFERENCES Items(ItemId),
     ItemCount INT NOT NULL
   );
-END;
 
-IF (@insertInveotry = 1)
-THEN
+IF (@insertInventory = 1)
   INSERT INTO [Inventory](ItemId, ItemCount)
-  VALUES (),
-END;
+  VALUES (1, 5),
+         (2, 5),
+         (3, 5),
+         (4, 5),
+         (5, 5),
+         (6, 5),
+         (7, 5),
+         (8, 5),
+         (9, 5),
+         (10, 5),
+         (11, 5),
+         (12, 5);
 ";
 
     try
     {
       await using SqlConnection connection = new SqlConnection(_connectionString);
-      if (connection.State is not ConnectionState.Closed)
+      if (connection.State is ConnectionState.Closed)
         await connection.OpenAsync(cancellationToken);
 
       using SqlCommand createDb = connection.CreateCommand();
       createDb.CommandText = ensureDatabase;
-
       await createDb.ExecuteNonQueryAsync(cancellationToken);
 
       using SqlCommand createData = connection.CreateCommand();
@@ -281,7 +286,7 @@ WHERE I.CatalogItemId = @{nameof(catalogItemId)};
 
       command.Parameters.AddWithValue(nameof(catalogItemId), catalogItemId);
 
-      SqlDataReader reader = await command.ExecuteReaderAsync(cancellationToken);
+      using SqlDataReader reader = await command.ExecuteReaderAsync(cancellationToken);
 
       InventoryStatus? status = null;
 
@@ -328,7 +333,7 @@ WHERE I.CatalogItemId in (@{nameof(catalogItemIds)});
       command.CommandText = getStatus;
 
       command.Parameters.AddWithValue(nameof(catalogItemIds), catalogItemIds);
-      SqlDataReader reader = await command.ExecuteReaderAsync(cancellationToken);
+      using SqlDataReader reader = await command.ExecuteReaderAsync(cancellationToken);
 
       List<InventoryStatus> results = new List<InventoryStatus>();
       while (await reader.ReadAsync(cancellationToken))

@@ -13,33 +13,36 @@ internal class InventoryService : IInventoryService
     _repository = repository;
   }
 
-  public Task CreateItemInventoryStatusAsync(int catalogItemId, int startingAmount, CancellationToken cancellationToken = default)
+  public async Task CreateItemInventoryStatusAsync(int catalogItemId, int startingAmount, CancellationToken cancellationToken = default)
   {
-    throw new NotImplementedException();
+    await _repository.CreateItemInventoryStatusAsync(catalogItemId, startingAmount, cancellationToken);
   }
 
-  public Task DeleteItemInventoryStatusAsync(int catalogItemId, CancellationToken cancellationToken = default)
+  public async Task DeleteItemInventoryStatusAsync(int catalogItemId, CancellationToken cancellationToken = default)
   {
-    throw new NotImplementedException();
+    await _repository.DeleteItemInventoryStatusAsync(catalogItemId, cancellationToken);
   }
 
-  public Task<IEnumerable<InventoryStatus>> GetAllItemStatusesAsync(CancellationToken cancellationToken = default)
+  public async Task<IEnumerable<InventoryStatus>> GetAllItemStatusesAsync(CancellationToken cancellationToken = default)
   {
-    throw new NotImplementedException();
+    IEnumerable<InventoryStatus> status = await _repository.GetAllItemStatusesAsync(cancellationToken);
+    return status;
   }
 
-  public Task<InventoryStatus?> GetItemInventoryStatusAsync(int catalogItemId, CancellationToken cancellationToken = default)
+  public async Task<InventoryStatus?> GetItemInventoryStatusAsync(int catalogItemId, CancellationToken cancellationToken = default)
   {
-    throw new NotImplementedException();
+    InventoryStatus? status = await _repository.GetItemInventoryStatusAsync(catalogItemId, cancellationToken);
+    return status;
   }
 
-  public Task<IEnumerable<InventoryStatus>> GetItemStatusesAsync(IEnumerable<int> catalogItemIds, CancellationToken cancellationToken = default)
+  public async Task<IEnumerable<InventoryStatus>> GetItemStatusesAsync(IEnumerable<int> catalogItemIds, CancellationToken cancellationToken = default)
   {
-    throw new NotImplementedException();
+    IEnumerable<InventoryStatus> status = await _repository.GetItemStatusesAsync(catalogItemIds, cancellationToken);
+    return status;
   }
 
-  public Task UpdateItemInventoryStatusAsync(int catalogItemId, int amount, CancellationToken cancellationToken = default)
+  public async Task UpdateItemInventoryStatusAsync(int catalogItemId, int amount, CancellationToken cancellationToken = default)
   {
-    throw new NotImplementedException();
+    await _repository.UpdateItemInventoryStatusAsync(catalogItemId, amount, cancellationToken);
   }
 }

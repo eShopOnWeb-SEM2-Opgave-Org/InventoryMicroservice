@@ -2,7 +2,9 @@ using System.Text;
 using System.Text.Json;
 using InventoryMicroservice.Api.Interfaces;
 using InventoryMicroservice.Api.Models;
+using InventoryMicroservice.Api.RabbitMQActions;
 using InventoryMicroservice.Common.Errors;
+using InventoryMicroservice.Common.Requests;
 using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
 
@@ -13,10 +15,10 @@ public class InventoryEntrypoint: IRabbitMQEntrypoint
   internal const string HOSTNAME_KEY = "inventory-hostname";
   internal const string PORT_KEY = "inventory-posrt";
 
-  private readonly IServiceProvider _serviceProvider;
-
   private readonly string _rabbitMQHostname;
   private readonly int _rabbitMQPort;
+
+  private readonly IServiceProvider _serviceProvider;
 
   private readonly RabbitMQCredentials _credentials;
 
@@ -67,32 +69,80 @@ public class InventoryEntrypoint: IRabbitMQEntrypoint
       {"x-dead-letter-routing-key", "inventory.unread.message"}
     };
 
-    string queueName = 
-    await _channel.QueueDeclareAsync("inventory-input-queue", durable: true, exclusive: false, autoDelete: false, arguments: queueArguments);
+    string queueName =
+      await _channel.QueueDeclareAsync("inventory-input-queue", durable: true, exclusive: false, autoDelete: false, arguments: queueArguments);
 
-    await _channel.BasicQosAsync(prefetchSize: 1, prefetchCount: 1, global: false);
+    await _channel.BasicQosAsync(prefetchSize: 0, prefetchCount: 1, global: false);
 
     AsyncEventingBasicConsumer consumer = new AsyncEventingBasicConsumer(_channel);
     consumer.ReceivedAsync += async (sender, content) =>
     {
-      if (content.BasicProperties?.Headers?.TryGetValue("command-key", out object? commandKey) is not true)
+      if (content.BasicProperties?.Headers?.TryGetValue("command-key", out object? commandKey) is not true ||
+          commandKey is not string strCommandKey)
       {
         await SendMessageToInvalidAsync(content, "missing-command-key", "Message was missing command key");
         return;
       }
 
-      IRabbitMQEvent? @event = _serviceProvider.GetKeyedService<IRabbitMQEvent>(commandKey);
+      string body = Encoding.UTF8.GetString(content.Body.ToArray());
+      InventoryRequestWrapper? wrapper = JsonSerializer.Deserialize<InventoryRequestWrapper>(body);
 
-      if (@event is null)
+      if (wrapper is not InventoryRequestWrapper request)
       {
-        await SendMessageToInvalidAsync(content, "invalid-command-key", "Command key \"" + commandKey + "\" is not valid");
+        await SendMessageToInvalidAsync(content, "missing-command-body", "Message was missing request body");
         return;
+      }
+
+      bool succesfulAction;
+      try
+      {
+        succesfulAction = strCommandKey switch
+        {
+          UpdateInventoryAction.CommandKey => await HandleActionAsync<UpdateInventory>(wrapper.Body, strCommandKey),
+          CreateInventoryAction.CommandKey => await HandleActionAsync<CreateInventory>(wrapper.Body, strCommandKey),
+          DeleteInventoryAction.CommandKey => await HandleActionAsync<DeleteInventory>(wrapper.Body, strCommandKey),
+          _ => throw new InvalidOperationException("Unknown command key")
+        };
+      }
+      catch (Exception e)
+      {
+        await SendMessageToInvalidAsync(content, "command", e.Message);
+        return;
+      }
+
+      if (wrapper.ReturnQueueName is string returnQueueName)
+      {
+        BasicProperties props = new BasicProperties(content.BasicProperties);
+
+        await _channel.BasicPublishAsync(
+          exchangeName,
+          returnQueueName,
+          mandatory: false,
+          props,
+          body: Encoding.UTF8.GetBytes(succesfulAction.ToString())
+        );
       }
 
       await _channel.BasicAckAsync(content.DeliveryTag, multiple: false);
     };
 
     await _channel.BasicConsumeAsync("inventory-input-queue", autoAck: false, consumer: consumer);
+  }
+
+  private async Task<bool> HandleActionAsync<TInput>(string body, string commandKey)
+  {
+    TInput? input = JsonSerializer.Deserialize<TInput>(body);
+    if (input is null)
+      throw new InvalidOperationException("Cannot run command due to missing body");
+
+    IRabbitMQAction<TInput>? action =
+      _serviceProvider.GetRequiredKeyedService<IRabbitMQAction<TInput>>(commandKey);
+
+    if (action is null)
+      throw new InvalidOperationException("No command registerd for key: " + commandKey);
+
+    bool result = await action.RunActionAsync(input);
+    return result;
   }
 
   private async Task SetupDeadLetterExchangeAsync()

@@ -1,14 +1,7 @@
+
 namespace InventoryMicroservice.Api.Interfaces;
 
-public interface IRabbitMQEvent
-{}
-
-public interface IRabbitMQAction<TInput>: IRabbitMQEvent
+public interface IRabbitMQAction<TInput>
 {
-  Task RunActionAsync(TInput input, CancellationToken cancellationToken);
-}
-
-public interface IRabbitMQFunc<TInput, TOutput>: IRabbitMQEvent
-{
-  Task<TOutput> RunFuncAsync(TInput input, CancellationToken cancellationToken);
+  Task<bool> RunActionAsync(TInput input, CancellationToken cancellationToken = default);
 }

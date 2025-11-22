@@ -23,15 +23,6 @@ public static class RabbitMQSetupDependencyInjection
     return @this;
   }
 
-  public static IServiceCollection AddRabbitMQAction<TInterfaceAction, TService>(this IServiceCollection @this, string key)
-  where TInterfaceAction: class, IRabbitMQEvent
-  where TService: class, TInterfaceAction
-  {
-    @this.AddKeyedScoped<TInterfaceAction, TService>(key);
-
-    return @this;
-  }
-
   public static IServiceScope StartRabbitMQEntryPoints(this IServiceScope @this)
   {
     IRabbitMQEntrypoint? entrypoint = @this.ServiceProvider.GetService<IRabbitMQEntrypoint>();

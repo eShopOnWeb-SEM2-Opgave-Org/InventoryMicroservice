@@ -4,9 +4,9 @@ using InventoryMicroservice.Service.Interfaces;
 
 namespace InventoryMicroservice.Api.RabbitMQActions;
 
-public class DeleteInventoryAction : IRabbitMQAction<DeleteInventory>
+public class DeleteInventoryAction: IRabbitMQAction<DeleteInventory>
 {
-  internal static string CommandKey = "delete";
+  internal const string CommandKey = "delete";
 
   private readonly IInventoryService _service;
   private readonly ILogger<DeleteInventoryAction> _logger;
@@ -17,7 +17,7 @@ public class DeleteInventoryAction : IRabbitMQAction<DeleteInventory>
     _logger = logger;
   }
 
-  public Task RunActionAsync(DeleteInventory input, CancellationToken cancellationToken)
+  public Task<bool> RunActionAsync(DeleteInventory input, CancellationToken cancellationToken)
   {
     throw new NotImplementedException();
   }
