@@ -2,6 +2,7 @@ using System.Data;
 using InventoryMicroservice.Common.Models;
 using InventoryMicroservice.Infrastructure.Interfaces;
 using Microsoft.Data.SqlClient;
+using Microsoft.Data.SqlClient.Server;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
@@ -243,9 +244,9 @@ Where CatalogItemId = @{nameof(catalogItemId)};
     string getStatus = $@"
 USE [{_databaseName}];
 
-SELECT I.ItemId, I.CatalogItemId, IN.ItemCount
+SELECT I.ItemId, I.CatalogItemId, IT.ItemCount
 FROM [Items] I
-  LEFT JOIN [Inventory] IN (I.ItemId = IN.ItemId);
+  LEFT JOIN [Inventory] IT ON (I.ItemId = IT.ItemId);
 ";
 
     try
@@ -338,10 +339,11 @@ WHERE I.CatalogItemId = @{nameof(catalogItemId)};
     string getStatus = $@"
 USE [{_databaseName}];
 
-SELECT I.ItemId, I.CatalogItemId, IN.ItemCount
+SELECT I.ItemId, I.CatalogItemId, IT.ItemCount
 FROM [Items] I
-  LEFT JOIN [Inventory] IN (I.ItemId = IN.ItemId)
-WHERE I.CatalogItemId in (@{nameof(catalogItemIds)});
+  LEFT JOIN [Inventory] IT ON (I.ItemId = IT.ItemId)
+WHERE I.CatalogItemId in ({string.Join(',', catalogItemIds)});
+-- This should be safe, as the use does not write in anything for this
 ";
 
     try
@@ -353,7 +355,6 @@ WHERE I.CatalogItemId in (@{nameof(catalogItemIds)});
       using SqlCommand command = connection.CreateCommand();
       command.CommandText = getStatus;
 
-      command.Parameters.AddWithValue(nameof(catalogItemIds), catalogItemIds);
       using SqlDataReader reader = await command.ExecuteReaderAsync(cancellationToken);
 
       List<InventoryStatus> results = new List<InventoryStatus>();

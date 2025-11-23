@@ -18,7 +18,7 @@ public class InventoryController: ControllerBase
   }
 
   [HttpGet]
-  public async Task<ActionResult<InventoryStatus>> GetInventoryStatusAsync(int catalogItemId, CancellationToken cancellationToken = default)
+  public async Task<ActionResult<InventoryStatus>> GetInventoryStatusAsync([FromQuery] int catalogItemId, CancellationToken cancellationToken = default)
   {
     try
     {
@@ -42,4 +42,31 @@ public class InventoryController: ControllerBase
       return Problem("Could not fetch inventory status due to internal error");
     }
   }
+
+  [HttpGet("multiple")]
+  public async Task<ActionResult<IEnumerable<InventoryStatus>>> GetMultipleInventoryStatusAsync([FromQuery] IEnumerable<int> catalogItemIds, CancellationToken cancellationToken = default)
+  {
+    try
+    {
+      IEnumerable<InventoryStatus> status = await _service.GetItemStatusesAsync(catalogItemIds, cancellationToken);
+
+      if (!status.Any())
+        return NoContent();
+
+      return Ok(status);
+    }
+    catch (Exception e)
+    {
+      _logger.LogError(
+        e,
+        "[Opearation: {Class}.{Method}] Could not fetch inventory status for Catalog Items = {CatalogItemId}",
+        nameof(InventoryController),
+        nameof(GetInventoryStatusAsync),
+        catalogItemIds
+      );
+
+      return Problem("Could not fetch inventory status due to internal error");
+    }
+  }
+
 }

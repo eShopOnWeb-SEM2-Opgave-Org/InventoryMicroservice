@@ -6,13 +6,13 @@
     <ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>
 
-  <ItemGroup>
+  <ItemGroup Label="NuGet Includes">
     <PackageReference Include="RabbitMQ.Client" Version="7.1.2" />
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="9.0.10" />
     <PackageReference Include="Swashbuckle.AspNetCore" Version="6.5.0" />
   </ItemGroup>
 
-  <ItemGroup>
+  <ItemGroup Label="Local Includes">
     <ProjectReference Include="..\InventoryMicroservice.Common\InventoryMicroservice.Common.csproj" />
     <ProjectReference Include="..\InventoryMicroservice.Infrastructure\InventoryMicroservice.Infrastructure.csproj" />
     <ProjectReference Include="..\InventoryMicroservice.Service\InventoryMicroservice.Service.csproj" />
