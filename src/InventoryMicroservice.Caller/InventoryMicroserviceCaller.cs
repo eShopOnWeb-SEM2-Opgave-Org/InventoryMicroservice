@@ -36,7 +36,7 @@ internal class InventoryMicroserviceCaller : IInventoryMicroserviceCaller
 
     IConnectionFactory rabbitFactory = new ConnectionFactory
     {
-      Host = new(rabbitMQHost),
+      HostName = rabbitMQHost,
       UserName = rabbitMQUser,
       Password = rabbitMQPassword
     };
@@ -64,6 +64,7 @@ internal class InventoryMicroserviceCaller : IInventoryMicroserviceCaller
       using HttpClient client = _httpFactory.CreateClient("inventory-microservice-http-client");
       string url = $"api/inventory?catalogItemId={catalogItemId}";
 
+      _logger.LogInformation("Using address: " + client.BaseAddress + url);
       HttpResponseMessage response = await client.GetAsync(url, cancellationToken);
 
       if (response.StatusCode is not (HttpStatusCode.OK or HttpStatusCode.NoContent))
@@ -164,7 +165,8 @@ internal class InventoryMicroserviceCaller : IInventoryMicroserviceCaller
     if (failure is not null)
       _onFailure.Add(responseId.ToString(), failure);
 
-    await _channel.BasicPublishAsync("inventory-input-queue", "", mandatory: true, props, message);
+    _logger.LogInformation("Sending create request, with return id: {Guid}, and command key create", responseId.ToString());
+    await _channel.BasicPublishAsync("inventory-exchange", "inventory.input.create", mandatory: true, props, message);
   }
 
   public async Task DeleteInventoryStatusAsync(DeleteInventory request, Func<CancellationToken, Task> success, Func<CancellationToken, Task>? failure, CancellationToken cancellationToken)
@@ -193,7 +195,7 @@ internal class InventoryMicroserviceCaller : IInventoryMicroserviceCaller
     if (failure is not null)
       _onFailure.Add(responseId.ToString(), failure);
 
-    await _channel.BasicPublishAsync("inventory-input-queue", "", mandatory: true, props, message);
+    await _channel.BasicPublishAsync("inventory-exchange", "inventory.input.delete", mandatory: true, props, message);
   }
 
   public async Task UpdateInventoryStatusAsync(UpdateInventory request, Func<CancellationToken, Task> success, Func<CancellationToken, Task>? failure, CancellationToken cancellationToken)
@@ -222,7 +224,7 @@ internal class InventoryMicroserviceCaller : IInventoryMicroserviceCaller
     if (failure is not null)
       _onFailure.Add(responseId.ToString(), failure);
 
-    await _channel.BasicPublishAsync("inventory-input-queue", "", mandatory: true, props, message);
+    await _channel.BasicPublishAsync("inventory-exchange", "inventory.input.update", mandatory: true, props, message);
   }
 
   private async Task SetupConsumerAsync(IChannel channel)
@@ -246,9 +248,11 @@ internal class InventoryMicroserviceCaller : IInventoryMicroserviceCaller
       }
 
       string guid = Encoding.UTF8.GetString(validResponseId);
+      _logger.LogInformation("Received return with id {Id}", guid);
 
       string status = Encoding.UTF8.GetString(content.Body.ToArray());
-      if (status is "true" && _onSuccess.TryGetValue(guid.ToString(), out Func<CancellationToken, Task>? success))
+      _logger.LogInformation("Return status was {Status}", status);
+      if (status.ToLowerInvariant() is "true" && _onSuccess.TryGetValue(guid.ToString(), out Func<CancellationToken, Task>? success))
         await success(default);
       else if (_onFailure.TryGetValue(guid, out Func<CancellationToken, Task>? failure))
         await failure(default);
@@ -256,6 +260,7 @@ internal class InventoryMicroserviceCaller : IInventoryMicroserviceCaller
       await channel.BasicAckAsync(content.DeliveryTag, false);
     };
 
+    _logger.LogInformation("Binding consumer to response queue {QueueName}", _responseQueueName);
     await channel.BasicConsumeAsync(_responseQueueName, autoAck: false, consumer: consumer);
   }
 

@@ -72,8 +72,9 @@ public class InventoryEntrypoint: IRabbitMQEntrypoint
       {"x-dead-letter-routing-key", "inventory.unread.message"}
     };
 
-    string queueName =
+    QueueDeclareOk queueName =
       await _channel.QueueDeclareAsync("inventory-input-queue", durable: true, exclusive: false, autoDelete: false, arguments: queueArguments);
+    await _channel.QueueBindAsync(queueName.QueueName, exchangeName, "inventory.input.#");
 
     await _channel.BasicQosAsync(prefetchSize: 0, prefetchCount: 1, global: false);
 
@@ -120,12 +121,13 @@ public class InventoryEntrypoint: IRabbitMQEntrypoint
         return;
       }
 
+      _logger.LogInformation("Caller send return queue: {QueueName}", wrapper.ReturnQueueName ?? "None");
       if (wrapper.ReturnQueueName is string returnQueueName)
       {
         BasicProperties props = new BasicProperties(content.BasicProperties);
 
         await _channel.BasicPublishAsync(
-          exchangeName,
+          "",
           returnQueueName,
           mandatory: false,
           props,
