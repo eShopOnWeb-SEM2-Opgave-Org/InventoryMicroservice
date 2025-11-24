@@ -106,7 +106,7 @@ internal class InventoryMicroserviceCaller : IInventoryMicroserviceCaller
       if (!catalogItemIds.Any())
         return [];
 
-      url = url + string.Join("catalogItemIds=", catalogItemIds);
+      url = url + string.Join("&catalogItemIds=", catalogItemIds);
 
       HttpResponseMessage response = await client.GetAsync(url, cancellationToken);
 
